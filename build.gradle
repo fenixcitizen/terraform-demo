@@ -1,0 +1,64 @@
+
+import org.ysb33r.gradle.terraform.tasks.TerraformInit
+import org.ysb33r.gradle.terraform.tasks.TerraformPlan
+
+plugins {
+    id 'groovy'
+    id 'java'
+    // and Terraform Gradle Plugin, see https://ysb33rorg.gitlab.io/terraform-gradle-plugin/
+    id "org.ysb33r.terraform" version "0.15.1"
+}
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+
+    implementation "com.fasterxml.jackson.core:jackson-databind:$jackson_version"
+
+    implementation "org.codehaus.groovy:groovy-all:$groovy_version"
+    implementation "org.codehaus.groovy:groovy-json:$groovy_version"
+    implementation "org.codehaus.groovy:groovy-xml:$groovy_version"
+
+    implementation 'com.athaydes:spock-reports:2.3.1-groovy-3.0'
+    implementation 'org.spockframework:spock-core:2.3-groovy-3.0'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.0'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+// Define how you want to group your Terraform scripts (could be e.g. per env or per project)
+terraformSourceSets {
+    local {
+        srcDir = 'src/tf/environments/local'
+    }
+    dev {
+        srcDir = 'src/tf/environments/dev'
+    }
+}
+
+// Configure backends per environment
+tasks.withType(TerraformInit) { it ->
+    if (!it.getName().contains("Local")) {
+        it.backendConfigValues "username": "a_user"
+        it.backendConfigValues "password": "a_passphrase"
+    }
+}
+
+// Ensure TF plan always produces output in JSON format for tests
+tasks.withType(TerraformPlan) {
+    doFirst {
+        setJson(true)
+    }
+}
+
+// Ensure TF plan is generated before tests are run
+tasks.findByName('processResources').dependsOn('tfLocalPlan')
